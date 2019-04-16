@@ -1,7 +1,9 @@
 # causal_tree
 
-causal_tree.py: Python implementation of Susan Athey's causal tree
+Christopher Tran, Elena Zheleva, "Learning Triggers for Heterogeneous Treatment Effects", AAAI 2019. (https://www.cs.uic.edu/~ctran/docs/learning_triggers_HTE_aaai19.pdf)
 
-causal_tree_learn.py: Our causal tree
+CTL: our implementation of causal trees using validation set
+
+ct_util: utility functions used for the causal tree
 
 main.py: example code on the asthma.txt dataset
