@@ -22,7 +22,6 @@ class CausalTree:
         self.min_size = min_size
         self.weight = weight
         self.seed = seed
-        self.cont = cont
         if cont:
             self.eval_func = self.objective_cont
         else:
@@ -105,7 +104,7 @@ class CausalTree:
                     train_rows, est_rows, train_outcome, est_labels, train_treat, est_treatment = \
                         train_test_split(rows, labels, treatment, shuffle=True, test_size=0.5)
 
-                _, _, curr_split = tau_squared_cont(train_rows, train_treat, self.min_size, self.quartile)
+                _, _, curr_split = tau_squared_cont(train_rows, train_treat)
                 _, effect, _ = tau_squared(est_rows, est_treatment, treat_split=curr_split)
                 p_val = get_pval(est_rows, est_treatment, treat_split=curr_split)
 
@@ -115,7 +114,7 @@ class CausalTree:
                 current_var = (1 + train_to_est_ratio) * (
                         (current_var_treat / num_treat) + (current_var_control / num_cont))
             else:
-                _, effect, curr_split = tau_squared_cont(labels, treatment, self.min_size, self.quartile)
+                _, effect, curr_split = tau_squared_cont(labels, treatment, self.min_size)
                 p_val = get_pval(labels, treatment, curr_split)
         else:
             # otherwise something is wrong, assume binary learn
@@ -169,6 +168,7 @@ class CausalTree:
 
         best_gain = 0.0
         best_attribute = None
+        best_sets = {}
 
         best_tb_obj = 0.0
         best_fb_obj = 0.0
@@ -179,11 +179,11 @@ class CausalTree:
         best_tb_var = 0.0
         best_fb_var = 0.0
 
-        best_tb_mse = 0.0
-        best_fb_mse = 0.0
-
         tb_var = 0.0
         fb_var = 0.0
+
+        best_tb_mse = 0.0
+        best_fb_mse = 0.0
 
         curr_depth += 1
 
@@ -196,31 +196,32 @@ class CausalTree:
                 # binary treatment splitting
                 if self.eval_func == self.objective:
 
+                    # (set1, set2, y1, y2, treat1, treat2) = divide_set(rows, labels, treatment, col, value)
+
+                    if size_check_fail(train_rows, train_outcome, train_treat, col, value, self.min_size):
+                        continue
+                    if size_check_fail(val_rows, val_outcome, val_treat, col, value, 2):
+                        continue
+
+                    if not self.val_honest and self.honest:
+                        if size_check_fail(est_rows, est_labels, est_treatment, col, value, 2):
+                            continue
+                        (est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2) \
+                            = divide_set(est_rows, est_labels, est_treatment, col, value)
+                    else:
+                        est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2 = [0] * 6
+
+                    (set1, set2, y1, y2, treat1, treat2) = divide_set(rows, labels, treatment, col, value)
+
                     (train_set1, train_set2, train_y1, train_y2, train_treat1, train_treat2) \
                         = divide_set(train_rows, train_outcome, train_treat, col, value)
-
-                    if check_min_size(self.min_size, train_treat1) or \
-                            check_min_size(self.min_size, train_treat2):
-                        continue
 
                     (val_set1, val_set2, val_y1, val_y2, val_treat1, val_treat2) \
                         = divide_set(val_rows, val_outcome, val_treat, col, value)
 
-                    val_size = self.split_size*self.min_size if self.split_size*self.min_size > 2 else 2
-                    if check_min_size(val_size, val_treat1) or \
-                            check_min_size(val_size, val_treat2):
-                        continue
-
-                    if not self.val_honest and self.honest:
-                        (est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2) \
-                            = divide_set(est_rows, est_labels, est_treatment, col, value)
-                        if check_min_size(val_size, est_treat1) or \
-                                check_min_size(val_size, est_treat2):
-                            continue
-
                     if self.honest:
-                        tb_num_cont, tb_num_treat = get_treat_size(train_treat1)
-                        fb_num_cont, fb_num_treat = get_treat_size(train_treat2)
+                        _, tb_num_cont, tb_num_treat = get_num_treat(train_treat1, self.min_size)
+                        _, fb_num_cont, fb_num_treat = get_num_treat(train_treat2, self.min_size)
                         var1_treat, var1_control = variance(train_y1, train_treat1)
                         var2_treat, var2_control = variance(train_y2, train_treat2)
                         tb_var = (1 + train_to_est_ratio) * (
@@ -236,13 +237,43 @@ class CausalTree:
 
                     if gain > best_gain:
                         best_gain = gain
-                        best_attribute = [col, value]
-                        best_tb_obj, best_fb_obj = tb_eval, fb_eval
-                        best_tb_var, best_fb_var = tb_var, fb_var
-                        best_tb_mse, best_fb_mse = tb_mse, fb_mse
+                        best_tb_obj = tb_eval
+                        best_fb_obj = fb_eval
+                        best_attribute = (col, value)
+                        best_sets['set1'] = set1
+                        best_sets['y1'] = y1
+                        best_sets['treat1'] = treat1
+                        best_sets['set2'] = set2
+                        best_sets['y2'] = y2
+                        best_sets['treat2'] = treat2
+                        best_sets['est_set1'] = est_set1
+                        best_sets['est_set2'] = est_set2
+                        best_sets['est_y1'] = est_y1
+                        best_sets['est_y2'] = est_y2
+                        best_sets['est_treat1'] = est_treat1
+                        best_sets['est_treat2'] = est_treat2
+                        best_sets['train_y1'] = train_y1
+                        best_sets['train_y2'] = train_y2
+                        best_sets['train_treat1'] = train_treat1
+                        best_sets['train_treat2'] = train_treat2
+                        best_sets['val_y1'] = val_y1
+                        best_sets['val_y2'] = val_y2
+                        best_sets['val_treat1'] = val_treat1
+                        best_sets['val_treat2'] = val_treat2
+                        best_tb_var = tb_var
+                        best_fb_var = fb_var
+                        best_tb_mse = tb_mse
+                        best_fb_mse = fb_mse
+                        # if self.use_mse:
+                        #     best_tb_mse = self.eval_func(train_y1, train_treat1, val_y1, val_treat1, return_mse=True)
+                        #     best_fb_mse = self.eval_func(train_y2, train_treat2, val_y2, val_treat2, return_mse=True)
 
                 # continuous treatment splitting
                 if self.eval_func == self.objective_cont:
+                    (set1, set2, y1, y2, treat1, treat2) = divide_set(rows, labels, treatment, col, value)
+
+                    if np.unique(y1).shape[0] <= 1 or np.unique(y2).shape[0] <= 1:
+                        continue
 
                     (train_set1, train_set2, train_y1, train_y2, train_treat1, train_treat2) \
                         = divide_set(train_rows, train_outcome, train_treat, col, value)
@@ -259,12 +290,14 @@ class CausalTree:
                             = divide_set(est_rows, est_labels, est_treatment, col, value)
                         if np.unique(est_y1).shape[0] <= 1 or np.unique(est_y1).shape[0] <= 1:
                             continue
+                    else:
+                        est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2 = [0] * 6
 
                     tb_eval, tb_split, tb_mse = self.eval_func(train_y1, train_treat1, val_y1, val_treat1)
                     fb_eval, fb_split, fb_mse = self.eval_func(train_y2, train_treat2, val_y2, val_treat2)
                     if self.honest:
-                        tb_num_cont, tb_num_treat = get_treat_size(train_treat1, treat_split=tb_split)
-                        fb_num_cont, fb_num_treat = get_treat_size(train_treat2, treat_split=fb_split)
+                        _, tb_num_cont, tb_num_treat = get_num_treat(train_treat1, self.min_size, treat_split=tb_split)
+                        _, fb_num_cont, fb_num_treat = get_num_treat(train_treat2, self.min_size, treat_split=fb_split)
                         var1_treat, var1_control = variance(train_y1, train_treat1, treat_split=tb_split)
                         var2_treat, var2_control = variance(train_y2, train_treat2, treat_split=fb_split)
                         tb_var = (1 + train_to_est_ratio) * (
@@ -277,55 +310,83 @@ class CausalTree:
 
                     if gain > best_gain:
                         best_gain = gain
+                        best_tb_obj = tb_eval
+                        best_fb_obj = fb_eval
                         best_attribute = (col, value)
-                        best_tb_obj, best_fb_obj = tb_eval, fb_eval
-                        best_tb_var, best_fb_var = tb_var, fb_var
-                        best_tb_split, best_fb_split = tb_split, fb_split
-                        best_tb_mse, best_fb_mse = tb_mse, fb_mse
+                        best_sets['set1'] = set1
+                        best_sets['y1'] = y1
+                        best_sets['treat1'] = treat1
+                        best_sets['set2'] = set2
+                        best_sets['y2'] = y2
+                        best_sets['treat2'] = treat2
+                        best_sets['est_set1'] = est_set1
+                        best_sets['est_set2'] = est_set2
+                        best_sets['est_y1'] = est_y1
+                        best_sets['est_y2'] = est_y2
+                        best_sets['est_treat1'] = est_treat1
+                        best_sets['est_treat2'] = est_treat2
+                        best_sets['train_y1'] = train_y1
+                        best_sets['train_y2'] = train_y2
+                        best_sets['train_treat1'] = train_treat1
+                        best_sets['train_treat2'] = train_treat2
+                        best_sets['val_y1'] = val_y1
+                        best_sets['val_y2'] = val_y2
+                        best_sets['val_treat1'] = val_treat1
+                        best_sets['val_treat2'] = val_treat2
+                        best_tb_var = tb_var
+                        best_fb_var = fb_var
+                        best_tb_split = tb_split
+                        best_fb_split = fb_split
+                        best_tb_mse = tb_mse
+                        best_fb_mse = fb_mse
+                        # if self.use_mse:
+                        #     best_tb_mse = self.eval_func(train_y1, train_treat1, val_y1, val_treat1, return_mse=True)
+                        #     best_fb_mse = self.eval_func(train_y2, train_treat2, val_y2, val_treat2, return_mse=True)
 
         if self.eval_func == self.objective:
             if best_gain > 0:
                 node.col = best_attribute[0]
                 node.value = best_attribute[1]
 
-                (set1, set2, y1, y2, treat1, treat2) = divide_set(rows, labels, treatment, node.col, node.value)
-                est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2 = [0] * 6
-
-                if self.val_honest:
-                    (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
-                        = divide_set(val_rows, val_outcome, val_treat, node.col, node.value)
-                elif self.honest:
-                    (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
-                        = divide_set(est_rows, est_labels, est_treatment, node.col, node.value)
+                if self.honest:
+                    if self.val_honest:
+                        best_tb_effect = self.effect(best_sets['val_y1'], best_sets['val_treat1'])
+                        best_fb_effect = self.effect(best_sets['val_y2'], best_sets['val_treat2'])
+                        tb_p_val = get_pval(best_sets['val_y1'], best_sets['val_treat1'])
+                        fb_p_val = get_pval(best_sets['val_y2'], best_sets['val_treat2'])
+                    else:
+                        best_tb_effect = self.effect(best_sets['est_y1'], best_sets['est_treat1'])
+                        best_fb_effect = self.effect(best_sets['est_y2'], best_sets['est_treat2'])
+                        tb_p_val = get_pval(best_sets['est_y1'], best_sets['est_treat1'])
+                        fb_p_val = get_pval(best_sets['est_y2'], best_sets['est_treat2'])
                 else:
-                    (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
-                        = divide_set(train_rows, train_outcome, train_treat, node.col, node.value)
-
-                best_tb_effect = self.effect(use_y1, use_treat1)
-                best_fb_effect = self.effect(use_y2, use_treat2)
-                tb_p_val = get_pval(use_y1, use_treat1)
-                fb_p_val = get_pval(use_y2, use_treat2)
+                    best_tb_effect = self.effect(best_sets['train_y1'], best_sets['train_treat1'])
+                    best_fb_effect = self.effect(best_sets['train_y2'], best_sets['train_treat2'])
+                    tb_p_val = get_pval(best_sets['train_y1'], best_sets['train_treat1'])
+                    fb_p_val = get_pval(best_sets['train_y2'], best_sets['train_treat2'])
 
                 self.obj = self.obj - (node.current_obj - node.variance) + (best_tb_obj + best_fb_obj -
                                                                             best_tb_var - best_fb_var)
 
                 self.mse = self.mse - node.node_mse + best_tb_mse + best_fb_mse
+                # if self.use_mse:
+                #     self.obj = self.obj - node.current_obj + best_tb_mse + best_fb_mse
 
                 tb = self.Node(current_obj=best_tb_obj, effect=best_tb_effect, p_val=tb_p_val, node_var=best_tb_var,
                                node_depth=curr_depth, node_mse=best_tb_mse)
                 fb = self.Node(current_obj=best_fb_obj, effect=best_fb_effect, p_val=fb_p_val, node_var=best_fb_var,
                                node_depth=curr_depth, node_mse=best_fb_mse)
 
-                node.true_branch = self.fit_r(set1, y1, treat1,
+                node.true_branch = self.fit_r(best_sets['set1'], best_sets['y1'], best_sets['treat1'],
                                               curr_depth=curr_depth, node=tb,
-                                              est_rows=est_set1,
-                                              est_labels=est_y1,
-                                              est_treatment=est_treat1)
-                node.false_branch = self.fit_r(set2, y2, treat2,
+                                              est_rows=best_sets['est_set1'],
+                                              est_labels=best_sets['est_y1'],
+                                              est_treatment=best_sets['est_treat1'])
+                node.false_branch = self.fit_r(best_sets['set2'], best_sets['y2'], best_sets['treat2'],
                                                curr_depth=curr_depth, node=fb,
-                                               est_rows=est_set2,
-                                               est_labels=est_y2,
-                                               est_treatment=est_treat2)
+                                               est_rows=best_sets['est_set2'],
+                                               est_labels=best_sets['est_y2'],
+                                               est_treatment=best_sets['est_treat2'])
 
                 if node.effect > self.max:
                     self.max = node.effect
@@ -353,28 +414,28 @@ class CausalTree:
                 node.col = best_attribute[0]
                 node.value = best_attribute[1]
 
-                (set1, set2, y1, y2, treat1, treat2) = divide_set(rows, labels, treatment, node.col, node.value)
-                est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2 = [0] * 6
-
-                if self.val_honest:
-                    (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
-                        = divide_set(val_rows, val_outcome, val_treat, node.col, node.value)
-                elif self.honest:
-                    (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
-                        = divide_set(est_rows, est_labels, est_treatment, node.col, node.value)
+                if self.honest:
+                    if self.val_honest:
+                        best_tb_effect = self.effect(best_sets['val_y1'], best_sets['val_treat1'],
+                                                     treat_split=best_tb_split)
+                        best_fb_effect = self.effect(best_sets['val_y2'], best_sets['val_treat2'],
+                                                     treat_split=best_fb_split)
+                        tb_p_val = get_pval(best_sets['val_y1'], best_sets['val_treat1'], treat_split=best_tb_split)
+                        fb_p_val = get_pval(best_sets['val_y2'], best_sets['val_treat2'], treat_split=best_fb_split)
+                    else:
+                        best_tb_effect = self.effect(best_sets['est_y1'], best_sets['est_treat1'],
+                                                     treat_split=best_tb_split)
+                        best_fb_effect = self.effect(best_sets['est_y2'], best_sets['est_treat2'],
+                                                     treat_split=best_fb_split)
+                        tb_p_val = get_pval(best_sets['est_y1'], best_sets['est_treat1'], treat_split=best_tb_split)
+                        fb_p_val = get_pval(best_sets['est_y2'], best_sets['est_treat2'], treat_split=best_fb_split)
                 else:
-                    (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
-                        = divide_set(train_rows, train_outcome, train_treat, node.col, node.value)
-
-                a = get_treat_size(use_treat1, treat_split=best_tb_split)
-                b = get_treat_size(use_treat2, treat_split=best_fb_split)
-                print(a)
-                print(b)
-
-                best_tb_effect = self.effect(use_y1, use_treat1, treat_split=best_tb_split)
-                best_fb_effect = self.effect(use_y2, use_treat2, treat_split=best_fb_split)
-                tb_p_val = get_pval(use_y1, use_treat1, treat_split=best_tb_split)
-                fb_p_val = get_pval(use_y2, use_treat2, treat_split=best_fb_split)
+                    best_tb_effect = self.effect(best_sets['train_y1'], best_sets['train_treat1'],
+                                                 treat_split=best_tb_split)
+                    best_fb_effect = self.effect(best_sets['train_y2'], best_sets['train_treat2'],
+                                                 treat_split=best_fb_split)
+                    tb_p_val = get_pval(best_sets['train_y1'], best_sets['train_treat1'], treat_split=best_tb_split)
+                    fb_p_val = get_pval(best_sets['train_y2'], best_sets['train_treat2'], treat_split=best_fb_split)
 
                 self.obj = self.obj - (node.current_obj - node.variance) + (best_tb_obj + best_fb_obj -
                                                                             best_tb_var - best_fb_var)
@@ -388,18 +449,10 @@ class CausalTree:
                 fb = self.Node(current_obj=best_fb_obj, effect=best_fb_effect, p_val=fb_p_val,
                                treat_split=best_fb_split, node_mse=best_fb_mse)
 
-                node.true_branch = self.fit_r(set1, y1, treat1,
-                                              curr_depth=curr_depth, node=tb,
-                                              est_rows=est_set1,
-                                              est_labels=est_y1,
-                                              est_treatment=est_treat1
-                                              )
-                node.false_branch = self.fit_r(set2, y2, treat2,
-                                               curr_depth=curr_depth, node=fb,
-                                               est_rows=est_set2,
-                                               est_labels=est_y2,
-                                               est_treatment=est_treat2
-                                               )
+                node.true_branch = self.fit_r(best_sets['set1'], best_sets['y1'], best_sets['treat1'],
+                                              curr_depth=curr_depth, node=tb)
+                node.false_branch = self.fit_r(best_sets['set2'], best_sets['y2'], best_sets['treat2'],
+                                               curr_depth=curr_depth, node=fb)
 
                 if node.effect > self.max:
                     self.max = node.effect
@@ -501,22 +554,7 @@ class CausalTree:
         ttv[xv] = 1
         ttv[np.logical_not(xv)] = 0
 
-        # do the min_size check on training set
-        treat_num = np.sum(ttt == 1, axis=1)
-        cont_num = np.sum(ttt == 0, axis=1)
-        min_size_idx = np.where(np.logical_and(treat_num >= self.min_size, cont_num >= self.min_size))
-
-        unique_treatment = unique_treatment[min_size_idx]
-        ttt = ttt[min_size_idx]
-        yyt = yyt[min_size_idx]
-        ttv = ttv[min_size_idx]
-        yyv = yyv[min_size_idx]
-        if ttt.shape[0] == 0:
-            return return_val
-        if ttv.shape[0] == 0:
-            return return_val
-
-        # do the min_size check on validation set
+        # do the min_size check on validation set for now
         treat_num = np.sum(ttv == 1, axis=1)
         cont_num = np.sum(ttv == 0, axis=1)
         min_size_idx = np.where(np.logical_and(treat_num >= self.min_size, cont_num >= self.min_size))
@@ -526,9 +564,10 @@ class CausalTree:
         yyt = yyt[min_size_idx]
         ttv = ttv[min_size_idx]
         yyv = yyv[min_size_idx]
-        if ttt.shape[0] == 0:
-            return return_val
+
         if ttv.shape[0] == 0:
+            return return_val
+        if ttt.shape[0] == 0:
             return return_val
 
         y_t_m_t = np.sum((yyt * (ttt == 1)), axis=1) / np.sum(ttt == 1, axis=1)
@@ -562,6 +601,34 @@ class CausalTree:
         mse = train_err[argmax_obj]
 
         return best_obj, best_split, mse
+
+        # max_err = np.argmax(train_err)
+        # train_best_err = train_err[max_err]
+        # # val_best_err = val_err[max_err]
+        #
+        # train_best_effect = train_effect[max_err]
+        # val_best_effect = val_effect[max_err]
+        #
+        # best_split = unique_treatment[max_err]
+        #
+        # best_effect = train_effect[max_err]
+        #
+        # mse = train_best_err
+        #
+        # if self.base_obj:
+        #     train_mse = (1 - self.weight) * (total_train * train_best_err)
+        #     cost = self.weight * total_val * np.abs(train_best_effect - val_best_effect)
+        #     obj = (train_mse - cost) / (np.abs(total_train - total_val) + 1)
+        #     if self.weight_obj:
+        #         obj = total_train * obj
+        # else:
+        #     train_mse = (1 - self.weight) * train_best_err
+        #     cost = self.weight * np.abs(train_best_effect - val_best_effect)
+        #     obj = (train_mse - cost)
+        #     if self.weight_obj:
+        #         obj = total_train * obj
+        #
+        # return obj, best_split, best_effect, mse
 
     def tree_to_dot(self, tree, feat_names, filename='tree', alpha=0.05, show_pval=True):
         filename = filename + '.dot'
@@ -779,7 +846,7 @@ class CausalTree:
 
         prune_r(self.root)
 
-    def predict(self, test_data, return_features=False, variables=None, return_groups=False):
+    def predict(self, test_data, return_features=False, variables=None):
 
         if return_features:
             if self.root.feature_name is None:
@@ -844,23 +911,9 @@ class CausalTree:
                 leaf_results[i], leaf_treat_split[i], predict[i] = classify_r(self.root, test_example)
 
         if return_features:
-            if return_groups and self.cont:
-                return predict, leaf_results, leaf_treat_split, test_feature_lists
-            elif not return_groups and self.cont:
-                return predict, leaf_treat_split, test_feature_lists
-            elif return_groups and not self.cont:
-                return predict, leaf_results, test_feature_lists
-            else:
-                return predict, test_feature_lists
+            return predict, leaf_results, leaf_treat_split, test_feature_lists
         else:
-            if return_groups and self.cont:
-                return predict, leaf_results, leaf_treat_split
-            elif not return_groups and self.cont:
-                return predict, leaf_treat_split
-            elif return_groups and not self.cont:
-                return predict, leaf_results
-            else:
-                return predict
+            return predict, leaf_results, leaf_treat_split
 
     def feature_split_labels(self, variable_names):
 

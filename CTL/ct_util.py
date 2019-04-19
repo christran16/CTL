@@ -59,7 +59,7 @@ def col_dict(names):
     return feat_names
 
 
-def tau_squared_cont(outcome, treatment, min_size=1):
+def tau_squared_cont(outcome, treatment, min_size=1, quartile=False):
     """Continuous case"""
     total = outcome.shape[0]
 
@@ -90,6 +90,7 @@ def tau_squared_cont(outcome, treatment, min_size=1):
     cont_num = np.sum(tt == 0, axis=1)
     min_size_idx = np.where(np.logical_and(treat_num >= min_size, cont_num >= min_size))
 
+    unique_treatment = unique_treatment[min_size_idx]
     tt = tt[min_size_idx]
     yy = yy[min_size_idx]
 
@@ -241,6 +242,7 @@ def size_check_fail(rows, labels, treatment, col, value, min_size):
 
     return False
 
+
 def variance(y, treatment, treat_split=None):
     treat_vect = np.copy(treatment)
 
@@ -290,6 +292,20 @@ def dot_png(folder, extension='png', dpi=200):
         except subprocess.CalledProcessError:
             exit("Could not run dot, ie graphviz, to "
                  "produce visualization")
+
+
+def get_treat_size(t, treat_split=0.5):
+
+    num_treatment = t[t > treat_split].shape[0]
+    num_control = t[t <= treat_split].shape[0]
+
+    return num_treatment, num_control
+
+
+def check_min_size(min_size, t, treat_split=0.5):
+    nt, nc = get_treat_size(t, treat_split)
+
+    return nt < min_size or nc < min_size
 
 
 # command = ["dot", "-T" + extension, "-Gdpi=500", dot_filename + '.dot', "-o", output_file + "." + extension]
