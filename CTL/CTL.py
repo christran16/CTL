@@ -9,6 +9,7 @@ import numpy as np
 # TODO: remove the magnitude?
 # TODO: triggers, NaN
 # TODO: better way to set best gains
+# TODO: update plot tree for dpi as parameter
 
 # Class that defines the causal tree nodes
 class CausalTree:
@@ -577,10 +578,10 @@ class CausalTree:
     def dot_to_png(dot_filename="tree", output_file=None, extension="png"):
 
         if output_file is None:
-            command = ["dot", "-T" + extension, "-Gdpi=500", dot_filename + '.dot', "-o",
+            command = ["dot", "-T" + extension, "-Gdpi=200", dot_filename + '.dot', "-o",
                        dot_filename + "." + extension]
         else:
-            command = ["dot", "-T" + extension, "-Gdpi=500", dot_filename + '.dot', "-o", output_file + "." + extension]
+            command = ["dot", "-T" + extension, "-Gdpi=200", dot_filename + '.dot', "-o", output_file + "." + extension]
         try:
             if os.name == 'nt':
                 subprocess.check_call(command, shell=True)
