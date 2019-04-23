@@ -4,8 +4,23 @@ Christopher Tran, Elena Zheleva, ["Learning Triggers for Heterogeneous Treatment
 
 Our method is based on and adapted from: https://github.com/susanathey/causalTree
 
-CTL: our implementation of causal trees for triggers and using validation
 
-ct_util: utility functions used for the causal tree
+## Requirements
+* Python 3
+* sklearn
+* scipy
+* graphviz (if you want to plot the tree)
 
-main.py: example code on the asthma.txt dataset
+## Demo Code
+
+Two demo codes are available to run.
+
+```bash
+python binary_example.py
+```
+Runs the tree on a binary example (asthma.txt)
+
+```bash
+python trigger_example.py
+```
+Runs a tree on a trigger problem where the treatment is continuous (note for now the example is made up and treatment does not affect outcome, this is only to show example code)
