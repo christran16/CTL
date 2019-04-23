@@ -106,9 +106,9 @@ class CausalTree:
                     train_rows, est_rows, train_outcome, est_labels, train_treat, est_treatment = \
                         train_test_split(rows, labels, treatment, shuffle=True, test_size=0.5)
 
-                _, _, curr_split = tau_squared_cont(train_rows, train_treat, self.min_size, self.quartile)
-                _, effect, _ = tau_squared(est_rows, est_treatment, treat_split=curr_split)
-                p_val = get_pval(est_rows, est_treatment, treat_split=curr_split)
+                _, _, curr_split = tau_squared_cont(train_outcome, train_treat, self.min_size, self.quartile)
+                _, effect, _ = tau_squared(est_labels, est_treatment, treat_split=curr_split)
+                p_val = get_pval(est_labels, est_treatment, treat_split=curr_split)
 
                 train_to_est_ratio = est_rows.shape[0] / train_rows.shape[0]
                 current_var_treat, current_var_control = variance(train_outcome, train_treat)
