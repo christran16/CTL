@@ -107,7 +107,7 @@ class CausalTree:
                         train_test_split(rows, labels, treatment, shuffle=True, test_size=0.5)
 
                 _, _, curr_split = tau_squared_cont(train_outcome, train_treat, self.min_size, self.quartile)
-                _, effect, _ = tau_squared(est_labels, est_treatment, treat_split=curr_split)
+                _, effect = tau_squared(est_labels, est_treatment, treat_split=curr_split)
                 p_val = get_pval(est_labels, est_treatment, treat_split=curr_split)
 
                 train_to_est_ratio = est_rows.shape[0] / train_rows.shape[0]
@@ -298,6 +298,8 @@ class CausalTree:
                 elif self.honest:
                     (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
                         = divide_set(est_rows, est_labels, est_treatment, node.col, node.value)
+                    est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2 \
+                        = divide_set(est_rows, est_labels, est_treatment, node.col, node.value)
                 else:
                     (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
                         = divide_set(train_rows, train_outcome, train_treat, node.col, node.value)
@@ -363,14 +365,11 @@ class CausalTree:
                 elif self.honest:
                     (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
                         = divide_set(est_rows, est_labels, est_treatment, node.col, node.value)
+                    est_set1, est_set2, est_y1, est_y2, est_treat1, est_treat2 \
+                        = divide_set(est_rows, est_labels, est_treatment, node.col, node.value)
                 else:
                     (use_set1, use_set2, use_y1, use_y2, use_treat1, use_treat2) \
                         = divide_set(train_rows, train_outcome, train_treat, node.col, node.value)
-
-                a = get_treat_size(use_treat1, treat_split=best_tb_split)
-                b = get_treat_size(use_treat2, treat_split=best_fb_split)
-                print(a)
-                print(b)
 
                 best_tb_effect = self.effect(use_y1, use_treat1, treat_split=best_tb_split)
                 best_fb_effect = self.effect(use_y2, use_treat2, treat_split=best_fb_split)

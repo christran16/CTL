@@ -3,7 +3,6 @@ from CTL.CTL import CausalTree
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-
 x = np.random.randn(100, 10)
 y = np.random.randn(100)
 treatment = np.random.randn(100)
