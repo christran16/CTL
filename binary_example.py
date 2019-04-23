@@ -1,6 +1,5 @@
 import pandas as pd
 from CTL.CTL import CausalTree
-import numpy as np
 from sklearn.model_selection import train_test_split
 
 asthma = pd.read_csv('data/asthma.txt', delimiter=' ', index_col=None)
@@ -23,20 +22,23 @@ treatment[treatment == 2] = 1
 x_train, x_test, y_train, y_test, treat_train, treat_test = train_test_split(x, y, treatment,
                                                                              test_size=0.5, random_state=42)
 
-ct = CausalTree()
-ct.fit(x_train, y_train, treat_train)
-effect_prediction = ct.predict(x_test)
-# print(effect_prediction)
+# regular CTL
+ctl = CausalTree()
+ctl.fit(x_train, y_train, treat_train)
+ctl_predict = ctl.predict(x_test)
 
-# testing continuous
-np.random.seed(10000)
+# honest CTL
+cth = CausalTree(honest=True)
+cth.fit(x_train, y_train, treat_train)
+cth_predict = cth.predict(x_test)
 
-# using a random example with continuous treatments
-treatment = np.random.randn(y.shape[0])
+# val honest CTL
+cthv = CausalTree(val_honest=True)
+cthv.fit(x_train, y_train, treat_train)
+cthv_predict = cthv.predict(x_test)
 
-x_train, x_test, y_train, y_test, treat_train, treat_test = train_test_split(x, y, treatment,
-                                                                             test_size=0.5, random_state=42)
-ct = CausalTree(cont=True)
-ct.fit(x_train, y_train, treat_train)
-effect_prediction = ct.predict(x_test)
-# print(effect_prediction)
+# if you want to plot a tree
+# ctl.plot_tree(training_data=x_train)
+
+# if you have variable names
+# ctl.plot_tree(feat_names=variable_names)

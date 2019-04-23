@@ -616,7 +616,16 @@ class CausalTree:
 
         return effect
 
-    def plot_tree(self, feat_names, file="tree", alpha=0.05, show_pval=True, create_png=True, extension="png"):
+    def plot_tree(self, training_data=None, feat_names=None, file="tree", alpha=0.05, show_pval=True,
+                  create_png=True, extension="png"):
+
+        if feat_names is None:
+            if training_data is not None:
+                feat_names = []
+                for i in range(training_data.shape[0]):
+                    feat_names.append("att_{}".format(i))
+            else:
+                print("You need either feature names or training data")
 
         name_split = file.split('/')
         if len(name_split) > 1:
