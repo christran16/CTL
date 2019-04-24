@@ -203,8 +203,12 @@ class CausalTree:
             unique_vals = np.unique(rows[:, col])
 
             if self.max_values is not None:
-                idx = np.round(np.linspace(0, len(unique_vals) - 1, self.max_values)).astype(int)
-                unique_vals = unique_vals[idx]
+                if self.max_values < 1:
+                    idx = np.round(np.linspace(0, len(unique_vals) - 1, self.max_values * len(unique_vals))).astype(int)
+                    unique_vals = unique_vals[idx]
+                else:
+                    idx = np.round(np.linspace(0, len(unique_vals) - 1, self.max_values)).astype(int)
+                    unique_vals = unique_vals[idx]
 
             if self.verbose:
                 self.time = time.time() - self.start
