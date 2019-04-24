@@ -2,6 +2,7 @@ from sklearn.model_selection import train_test_split
 # from CTL.ct_util import *
 from .ct_util import *
 import numpy as np
+import time
 
 
 # TODO: need to get better objective value of heterogeneity rather than w/e objective I use
@@ -14,7 +15,8 @@ import numpy as np
 # Class that defines the causal tree nodes
 class CausalTree:
     def __init__(self, cont=False, max_depth=-1, min_size=2, weight=0.5, seed=None, split_size=0.5, honest=False,
-                 val_honest=False, variables=None, weight_obj=False, base_obj=True, quartile=False):
+                 val_honest=False, variables=None, weight_obj=False, base_obj=True, quartile=False, verbose=False,
+                 max_values=None):
         self.root = None
         self.max = -np.inf
         self.min = np.inf
@@ -40,6 +42,10 @@ class CausalTree:
         self.obj = 0.0
         self.tree_depth = 0
         self.variables = variables
+        self.verbose = verbose
+        self.start = 0.0
+        self.time = 0.0
+        self.max_values = max_values
         self.mse = 0.0
 
     class Node:
@@ -74,6 +80,9 @@ class CausalTree:
 
         if self.seed is not None:
             np.random.seed(self.seed)
+
+        if self.verbose:
+            self.start = time.time()
 
         curr_split = None
         current_var = 0.0
@@ -192,6 +201,14 @@ class CausalTree:
         for col in range(0, column_count):
             # unique values
             unique_vals = np.unique(rows[:, col])
+
+            if self.max_values is not None:
+                idx = np.round(np.linspace(0, len(unique_vals) - 1, self.max_values)).astype(int)
+                unique_vals = unique_vals[idx]
+
+            if self.verbose:
+                self.time = time.time() - self.start
+                print("Depth: %d, Column: %d, Elapsed Time: %.3f" %( curr_depth-1, col, self.time))
 
             for value in unique_vals:
                 # binary treatment splitting
