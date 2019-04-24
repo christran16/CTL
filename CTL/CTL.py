@@ -632,7 +632,7 @@ class CausalTree:
 
         return effect
 
-    def plot_tree(self, training_data=None, feat_names=None, file="tree", alpha=0.05, show_pval=True,
+    def plot_tree(self, feat_names=None, training_data=None, file="tree", alpha=0.05, show_pval=True,
                   create_png=True, extension="png"):
 
         if feat_names is None:
