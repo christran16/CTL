@@ -933,10 +933,10 @@ class CausalTree:
             if variable_names is not None:
                 self.feature_split_labels(variable_names)
 
-        def get_variables_r(node, list_vars):
+        def get_variables_r(node, list_vars, list_depths):
 
             if node.leaf:
-                return list_vars
+                return list_vars, list_depths
             else:
                 if cat:
                     if '==' in node.feature_split:
@@ -947,20 +947,29 @@ class CausalTree:
                         # list_vars.append(to_append)
                         if to_append not in list_vars:
                             list_vars.append(to_append)
+                            list_depths.append(node.depth)
                     else:
                         # list_vars.append(node.feature_name)
                         if node.feature_name not in list_vars:
                             list_vars.append(node.feature_name)
+                            list_depths.append(node.depth)
                 else:
                     # list_vars.append(node.feature_name)
                     if node.feature_name not in list_vars:
                         list_vars.append(node.feature_name)
-                list_vars = get_variables_r(node.true_branch, list_vars)
-                list_vars = get_variables_r(node.false_branch, list_vars)
+                        list_depths.append(node.depth)
+                list_vars = get_variables_r(node.true_branch, list_vars, list_of_depths)
+                list_vars = get_variables_r(node.false_branch, list_vars, list_of_depths)
 
-                return list_vars
+                return list_vars, list_depths
 
         list_of_vars = []
-        list_of_vars = get_variables_r(self.root, list_of_vars)
+        list_of_depths = []
+        list_of_vars, list_of_depths = get_variables_r(self.root, list_of_vars, list_of_depths)
 
-        return list_of_vars
+        sorted_vars = []
+        sorted_idx = np.argsort(list_of_depths)
+        for i in sorted_idx:
+            sorted_vars.append(list_of_vars[i])
+
+        return sorted_vars
