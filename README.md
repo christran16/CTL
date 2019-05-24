@@ -1,7 +1,6 @@
 # CTL
 
-## Please find the new repository on our lab github where all new updates will be: 
-## https://github.com/edgeslab/CTL
+## Please find the new repository on our lab github where all new updates will be: https://github.com/edgeslab/CTL
 
 Christopher Tran, Elena Zheleva, ["Learning Triggers for Heterogeneous Treatment Effects", AAAI 2019.](https://www.cs.uic.edu/~ctran/docs/learning_triggers_HTE_aaai19.pdf)
 
